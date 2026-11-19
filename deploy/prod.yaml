@@ -1,0 +1,7 @@
+services:
+  web:
+    image: {{image}}:{{version}}
+    ports:
+      - 8001:8080
+    pull_policy: always
+    restart: always

@@ -1,0 +1,28 @@
+﻿################################################################################
+# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
+################################################################################
+
+/.vs
+/obj
+*.user
+/bin/Debug/net8.0
+/.vs
+/static/*
+/bin
+!/static/assets/
+wwwroot/*
+# Local state, build outputs and private test configuration
+.claude/
+.codex/
+.agents/
+**/bin/
+**/obj/
+**/publish/
+appsettings.Local.json
+appsettings.Production.json
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
