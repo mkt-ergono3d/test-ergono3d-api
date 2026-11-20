@@ -18,8 +18,8 @@ namespace InsoleApi.Utils
             var dayUtc = DateOnly.FromDateTime(nowUtc);
 
             await _primaryDbContext.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO generation_usage_daily (day_utc, user_generation_count, created_at_utc, updated_at_utc)
-                VALUES ({dayUtc}, 1, {nowUtc}, {nowUtc})
+                INSERT INTO generation_usage_daily (day_utc, user_generation_count, failed_check_retry_count, created_at_utc, updated_at_utc)
+                VALUES ({dayUtc}, 1, 0, {nowUtc}, {nowUtc})
                 ON CONFLICT (day_utc) DO UPDATE SET
                     user_generation_count = generation_usage_daily.user_generation_count + 1,
                     updated_at_utc = EXCLUDED.updated_at_utc;

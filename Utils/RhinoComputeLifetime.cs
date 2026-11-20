@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace InsoleApi.Utils;
@@ -287,20 +286,12 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         probe.CancelAfter(ProbeTimeout);
         try
         {
-            // The proxy forwards /version to compute.geometry. It returns version metadata without doing a solve.
+            // The proxy forwards /version to the worker without doing a solve. Its body varies by Compute release.
             using var response = await SendWhileRunningAsync(client, BaseUrl + "/version", process, worker, probe.Token);
-            if (!response.IsSuccessStatusCode)
-                return false;
-
-            await using var body = await response.Content.ReadAsStreamAsync(probe.Token);
-            using var version = await JsonDocument.ParseAsync(body, cancellationToken: probe.Token);
-            var root = version.RootElement;
-            return root.ValueKind == JsonValueKind.Object &&
-                root.TryGetProperty("rhino", out var rhino) && rhino.ValueKind == JsonValueKind.String &&
-                root.TryGetProperty("compute", out var compute) && compute.ValueKind == JsonValueKind.String;
+            return response.IsSuccessStatusCode && !process.HasExited && !worker.HasExited;
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested &&
-            ex is HttpRequestException or OperationCanceledException or JsonException)
+            ex is HttpRequestException or OperationCanceledException)
         {
             return false;
         }

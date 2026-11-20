@@ -19,6 +19,7 @@ namespace InsoleApi.Database
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<RecordEntity>().HasKey(record => new { record.UserId, record.Time });
+            modelBuilder.Entity<GenerationUsageDailyEntity>().Property(usage => usage.FailedCheckRetryCount).HasDefaultValue(0L);
             modelBuilder.Entity<PaymentAttemptEntity>().HasIndex(attempt => attempt.StripeCheckoutSessionId).IsUnique();
             modelBuilder.Entity<PaymentAttemptEntity>().HasIndex(attempt => attempt.StripePaymentIntentId).IsUnique();
             modelBuilder.Entity<PaymentAttemptEntity>().HasIndex(attempt => attempt.UserId);
