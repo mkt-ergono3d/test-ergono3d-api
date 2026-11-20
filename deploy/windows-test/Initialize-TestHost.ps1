@@ -119,6 +119,8 @@ foreach ($type in 'app','landing') {
     $key = Join-Path $private "$type.deploy"
     Set-Access @($key, '/inheritance:r', '/grant:r', "${sid}:(R)", '*S-1-5-18:(F)', '*S-1-5-32-544:(F)')
     Set-Access @($key, '/setowner', $account)
+    $creatorSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    Set-Access @($key, '/remove:g', "*$creatorSid")
 }
 
 function Get-Action([string]$ScriptName) {

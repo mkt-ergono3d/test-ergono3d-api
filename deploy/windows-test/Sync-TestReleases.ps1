@@ -89,7 +89,7 @@ try {
                 $key = (Join-Path $private "$type.deploy").Replace('\', '/')
                 $hosts = (Join-Path $private 'known_hosts').Replace('\', '/')
                 $ssh = "$env:SystemRoot/System32/OpenSSH/ssh.exe".Replace('\', '/')
-                $gitOptions += @('-c', "core.sshCommand='$ssh' -i '$key' -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile='$hosts'")
+                $gitOptions += @('-c', "core.sshCommand='$ssh' -i '$key' -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=12 -o StrictHostKeyChecking=yes -o UserKnownHostsFile='$hosts'")
             }
             Invoke-Checked 'git.exe' ($gitOptions + @('fetch', '--quiet', '--no-tags', '--depth=1', $remote, 'refs/heads/main'))
             $commit = (Invoke-Checked 'git.exe' ($gitOptions + @('rev-parse', 'FETCH_HEAD'))).Trim()

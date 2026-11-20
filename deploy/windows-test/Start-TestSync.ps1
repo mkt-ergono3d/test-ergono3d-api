@@ -2,6 +2,9 @@
 param([Parameter(Mandatory)][string]$Root)
 
 $ErrorActionPreference = 'Stop'
-$log = Join-Path $Root 'logs\sync.log'
-& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File (Join-Path $PSScriptRoot 'Sync-TestReleases.ps1') -Root $Root *> $log
-exit $LASTEXITCODE
+$script = Join-Path $PSScriptRoot 'Sync-TestReleases.ps1'
+$arguments = "-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File `"$script`" -Root `"$Root`""
+$process = Start-Process -FilePath powershell.exe -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru `
+    -RedirectStandardOutput (Join-Path $Root 'logs\sync.log') `
+    -RedirectStandardError (Join-Path $Root 'logs\sync.error.log')
+exit $process.ExitCode
