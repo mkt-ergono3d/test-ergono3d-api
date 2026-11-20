@@ -46,7 +46,7 @@ try {
     $handler.AllowAutoRedirect = $false
     $handler.UseProxy = $false
     $http = [Net.Http.HttpClient]::new($handler)
-    $http.Timeout = [TimeSpan]::FromSeconds(3)
+    $http.Timeout = [TimeSpan]::FromSeconds(12)
     $origin = "http://127.0.0.1:$port"
     $deadline = [DateTime]::UtcNow.AddSeconds(40)
     $healthy = $false
@@ -61,6 +61,8 @@ try {
             if ($healthy) { break }
         } catch [Net.Http.HttpRequestException] {
             # Kestrel may still be starting.
+        } catch [OperationCanceledException] {
+            # The machine may still be warming up the published process.
         }
         Start-Sleep -Milliseconds 250
     }
