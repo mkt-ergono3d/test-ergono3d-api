@@ -210,7 +210,8 @@ const mime = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp',
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.gif': 'image/gif',
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.xml': 'application/xml',
-  '.txt': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.avif': 'image/avif'
+  '.txt': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.avif': 'image/avif',
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.stl': 'model/stl'
 }
 
 function reply(response, status) { response.writeHead(status).end() }

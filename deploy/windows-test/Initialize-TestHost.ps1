@@ -52,7 +52,8 @@ $private = Join-Path $root 'private'
 $controller = Join-Path $root 'controller'
 Copy-Item -LiteralPath $sdk -Destination (Join-Path $root 'tools\dotnet') -Recurse
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'site.mjs'), (Join-Path $PSScriptRoot 'Sync-TestReleases.ps1'), `
-    (Join-Path $PSScriptRoot 'Start-TestSite.ps1'), (Join-Path $PSScriptRoot 'Start-TestSync.ps1') -Destination $controller
+    (Join-Path $PSScriptRoot 'Start-TestSite.ps1'), (Join-Path $PSScriptRoot 'Start-TestSync.ps1'), `
+    (Join-Path $PSScriptRoot 'Clear-TestEnvironment.ps1') -Destination $controller
 
 $databasePassword = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
 $jwtKey = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')

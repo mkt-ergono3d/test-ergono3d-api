@@ -2,6 +2,7 @@
 param([Parameter(Mandatory)][string]$Root)
 
 $ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'Clear-TestEnvironment.ps1')
 $script = Join-Path $PSScriptRoot 'Sync-TestReleases.ps1'
 $arguments = "-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File `"$script`" -Root `"$Root`""
 $process = Start-Process -FilePath powershell.exe -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru `
