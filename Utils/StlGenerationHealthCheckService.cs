@@ -167,13 +167,13 @@ namespace InsoleApi.Utils
             }
         }
 
-        private static string GetStlGenerationEndpoint()
+        private string GetStlGenerationEndpoint()
         {
             var data = Uri.EscapeDataString(Convert.ToBase64String(Encoding.UTF8.GetBytes(HealthCheckPayload)));
 #if DEBUG
             return $"http://13.55.129.243/StarDesigner/insoles?data={data}";
 #else
-            return $"http://localhost:6500/StarDesigner/insoles?data={data}";
+            return $"{_rhinoCompute.BaseUrl}/StarDesigner/insoles?data={data}";
 #endif
         }
 

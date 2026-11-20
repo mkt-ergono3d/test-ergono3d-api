@@ -289,7 +289,7 @@ namespace InsoleApi.Controllers
             if (!_rhinoCompute.Enabled)
                 return $"http://13.55.129.243/StarDesigner/insoles?data={data}";
 #endif
-            return $"{RhinoComputeLifetime.BaseUrl}/StarDesigner/insoles?data={data}";
+            return $"{_rhinoCompute.BaseUrl}/StarDesigner/insoles?data={data}";
         }
 
         [HttpPost("get-stl")]

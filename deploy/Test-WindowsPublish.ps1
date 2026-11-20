@@ -77,6 +77,7 @@ try {
     if ($http) { $http.Dispose() }
     if ($process) {
         if (-not $process.HasExited) { Stop-Process -InputObject $process }
+        if (-not $process.WaitForExit(10000)) { throw 'The smoke-test process did not stop.' }
         $process.Dispose()
     }
     foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }

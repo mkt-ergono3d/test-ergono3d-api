@@ -102,8 +102,11 @@ async function openRelease(type, commit, port) {
     return { dir }
   }
 
+  const supportsIsolatedRhino = type === 'api' && settings.rhino &&
+    Boolean(await stat(path.join(dir, 'isolated-rhino.enabled')).catch(() => null))
   const processEnv = type === 'api' ? {
     ...settings.api,
+    ...(supportsIsolatedRhino ? settings.rhino : {}),
     DOTNET_ENVIRONMENT: 'Test',
     ASPNETCORE_ENVIRONMENT: 'Test',
     ASPNETCORE_URLS: `http://${host}:${port}`,

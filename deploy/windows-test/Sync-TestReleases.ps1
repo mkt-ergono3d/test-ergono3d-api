@@ -35,6 +35,16 @@ function Write-Pending([string]$Type, [string]$Commit) {
     else { [IO.File]::Move($temporary, $file) }
 }
 
+function Install-ReleaseDirectory([string]$Source, [string]$Destination) {
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try { [IO.Directory]::Move($Source, $Destination); return }
+        catch {
+            if ($attempt -eq 5 -or -not (Test-Path -LiteralPath $Source) -or (Test-Path -LiteralPath $Destination)) { throw }
+            Start-Sleep -Milliseconds (400 * $attempt)
+        }
+    }
+}
+
 function Build-Release([string]$Type, [string]$Source, [string]$Destination, [string]$Scratch) {
     Push-Location -LiteralPath $Source
     try {
@@ -42,6 +52,9 @@ function Build-Release([string]$Type, [string]$Source, [string]$Destination, [st
             api {
                 Invoke-Checked $sdk @('publish', 'InsoleApi.csproj', '--configuration', 'Release', '--runtime', 'win-x64', '--self-contained', 'true', '--configfile', (Join-Path $private 'NuGet.Config'), '--output', $Destination)
                 & (Join-Path $Source 'deploy\Test-WindowsPublish.ps1') -PublishDirectory $Destination -ScratchDirectory (Join-Path $Scratch 'smoke')
+                if (Test-Path -LiteralPath (Join-Path $Source 'deploy\windows-test\Launch-TestRhino.cmd')) {
+                    [IO.File]::WriteAllText((Join-Path $Destination 'isolated-rhino.enabled'), '1')
+                }
             }
             app {
                 $buildOutput = [IO.Path]::GetFullPath((Join-Path $Source '..\dist\app'))
@@ -75,6 +88,7 @@ $failed = $false
 try {
     foreach ($type in 'api', 'landing', 'app') {
         $scratch = $null
+        $prepared = $null
         try {
             $name = "mkt-ergono3d/test-ergono3d-$type"
             $store = Join-Path $cache "$type.git"
@@ -106,7 +120,10 @@ try {
                 Invoke-Checked 'git.exe' ($gitOptions + @('archive', '--format=zip', "--output=$zip", $commit))
                 Invoke-Checked 'tar.exe' @('-xf', $zip, '-C', $source)
                 Build-Release $type $source $destination $scratch
-                [IO.Directory]::Move($destination, $installed)
+                $prepared = Join-Path $releaseRoot ".stage-$([Guid]::NewGuid().ToString('N'))"
+                & robocopy.exe $destination $prepared /E /R:2 /W:1 /NP /NFL /NDL /NJH /NJS
+                if ($LASTEXITCODE -ge 8) { throw "Unable to stage $type release (robocopy $LASTEXITCODE)" }
+                Install-ReleaseDirectory $prepared $installed
             }
             Write-Pending $type $commit
             [IO.File]::WriteAllText($last, $commit)
@@ -115,6 +132,12 @@ try {
             $failed = $true
             Write-Warning "$type sync failed: $($_.Exception.Message)"
         } finally {
+            if ($prepared -and (Test-Path -LiteralPath $prepared)) {
+                $actual = (Resolve-Path -LiteralPath $prepared).Path
+                if ([IO.Path]::GetDirectoryName($actual) -eq (Resolve-Path -LiteralPath $releaseRoot).Path) {
+                    Remove-Item -LiteralPath $actual -Recurse -Force
+                }
+            }
             if ($scratch -and (Test-Path -LiteralPath $scratch)) {
                 $actual = (Resolve-Path -LiteralPath $scratch).Path
                 if ([IO.Path]::GetDirectoryName($actual) -eq (Resolve-Path -LiteralPath $work).Path) {

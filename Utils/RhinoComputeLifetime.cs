@@ -7,9 +7,7 @@ namespace InsoleApi.Utils;
 
 public sealed class RhinoComputeLifetime : IAsyncDisposable
 {
-    public const string BaseUrl = "http://localhost:6500";
-    private const int Port = 6500;
-    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(15);
+    private const string DefaultBaseUrl = "http://localhost:6500";
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(2);
     private static readonly Regex MissingStl = new(
@@ -17,6 +15,8 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
 
     private readonly string? _apiKey;
+    private readonly Uri _endpoint;
+    private readonly TimeSpan _idleTimeout;
     private readonly string? _launcherPath;
     private readonly string? _runtimeLogPath;
     private readonly ILogger<RhinoComputeLifetime> _logger;
@@ -35,6 +35,15 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         ILogger<RhinoComputeLifetime> logger)
     {
         _apiKey = configuration["RhinoCompute:ApiKey"];
+        var address = configuration["RhinoCompute:BaseUrl"] ?? DefaultBaseUrl;
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var endpoint) || endpoint.Scheme != Uri.UriSchemeHttp ||
+            !endpoint.IsLoopback || endpoint.AbsolutePath != "/" || !string.IsNullOrEmpty(endpoint.UserInfo + endpoint.Query + endpoint.Fragment))
+        {
+            throw new InvalidOperationException("RhinoCompute:BaseUrl must be a loopback HTTP origin.");
+        }
+        _endpoint = endpoint;
+        _idleTimeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("RhinoCompute:IdleSeconds") ?? 900);
+        if (_idleTimeout <= TimeSpan.Zero) throw new InvalidOperationException("RhinoCompute:IdleSeconds must be positive.");
         var launcher = configuration["RhinoCompute:LauncherPath"];
         if (!string.IsNullOrWhiteSpace(launcher))
         {
@@ -48,6 +57,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
     }
 
     public bool Enabled => _launcherPath is not null;
+    public string BaseUrl => _endpoint.GetLeftPart(UriPartial.Authority);
 
     public void ConfigureAuthentication(HttpClient client)
     {
@@ -148,7 +158,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
             if (_process is not null && !_applicationStopping.IsCancellationRequested)
             {
                 _lastJobFinished = Stopwatch.GetTimestamp();
-                _idleTimer.Change(IdleTimeout, Timeout.InfiniteTimeSpan);
+                _idleTimer.Change(_idleTimeout, Timeout.InfiniteTimeSpan);
             }
 
             _gate.Release();
@@ -197,7 +207,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         try
         {
             if (IsPortListening())
-                throw new InvalidOperationException($"Port {Port} is already in use. Stop the previous Rhino launcher and its process before enabling on-demand Rhino.");
+                throw new InvalidOperationException($"Port {_endpoint.Port} is already in use. Stop the previous Rhino launcher and its process before enabling on-demand Rhino.");
 
             if (!OperatingSystem.IsWindows() || !File.Exists(_launcherPath))
                 throw new InvalidOperationException("RhinoCompute:LauncherPath must point to the Rhino launcher BAT on Windows.");
@@ -212,6 +222,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
                 CreateNoWindow = true
             };
             start.Environment["INSOLE_RHINO_LAUNCHER"] = _launcherPath;
+            if (!string.IsNullOrWhiteSpace(_apiKey)) start.Environment["RHINO_COMPUTE_KEY"] = _apiKey;
             _job = new RhinoProcessJob();
             _process = Process.Start(start) ?? throw new InvalidOperationException("Could not start the Rhino launcher.");
             using (var input = _process.StandardInput)
@@ -269,7 +280,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         }
     }
 
-    private static async Task<bool> ProbeGeometryAsync(
+    private async Task<bool> ProbeGeometryAsync(
         HttpClient client, Process process, Process worker, CancellationToken cancellationToken)
     {
         using var probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -339,7 +350,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
             if (_disposed || _applicationStopping.IsCancellationRequested || _process is null)
                 return;
 
-            var remaining = IdleTimeout - Stopwatch.GetElapsedTime(_lastJobFinished);
+            var remaining = _idleTimeout - Stopwatch.GetElapsedTime(_lastJobFinished);
             if (remaining > TimeSpan.Zero)
             {
                 _idleTimer.Change(remaining, Timeout.InfiniteTimeSpan);
@@ -348,7 +359,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
 
             await StopProcessAsync();
             _state = "standby";
-            _logger.LogInformation("Stopped Rhino.Compute after {IdleMinutes} minutes without an STL job.", IdleTimeout.TotalMinutes);
+            _logger.LogInformation("Stopped Rhino.Compute after {IdleSeconds} seconds without an STL job.", _idleTimeout.TotalSeconds);
         }
         catch (Exception ex)
         {
@@ -381,8 +392,8 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         process.Dispose();
     }
 
-    private static bool IsPortListening() =>
-        IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(listener => listener.Port == Port);
+    private bool IsPortListening() =>
+        IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(listener => listener.Port == _endpoint.Port);
 
     private long GetRuntimeLogLength()
     {
