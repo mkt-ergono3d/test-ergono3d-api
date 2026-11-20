@@ -16,6 +16,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         @"FileNotFoundException.{0,1024}?Could not find file[^\r\n]*\.stl\b",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
 
+    private readonly string? _apiKey;
     private readonly string? _launcherPath;
     private readonly string? _runtimeLogPath;
     private readonly ILogger<RhinoComputeLifetime> _logger;
@@ -33,6 +34,7 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
         IHostApplicationLifetime applicationLifetime,
         ILogger<RhinoComputeLifetime> logger)
     {
+        _apiKey = configuration["RhinoCompute:ApiKey"];
         var launcher = configuration["RhinoCompute:LauncherPath"];
         if (!string.IsNullOrWhiteSpace(launcher))
         {
@@ -46,6 +48,16 @@ public sealed class RhinoComputeLifetime : IAsyncDisposable
     }
 
     public bool Enabled => _launcherPath is not null;
+
+    public void ConfigureAuthentication(HttpClient client)
+    {
+        if (string.IsNullOrWhiteSpace(_apiKey))
+        {
+            throw new InvalidOperationException("Set RhinoCompute:ApiKey in private runtime configuration.");
+        }
+
+        client.DefaultRequestHeaders.Add("RhinoComputeKey", _apiKey);
+    }
 
     public string State
     {

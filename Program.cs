@@ -16,8 +16,10 @@ namespace InsoleApi
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
-            var logFilePath = GetLogFilePath();
+            const string initializeDatabaseArgument = "--initialize-test-database";
+            var initializeTestDatabase = args.Contains(initializeDatabaseArgument, StringComparer.Ordinal);
+            var builder = WebApplication.CreateBuilder(args.Where(arg => arg != initializeDatabaseArgument).ToArray());
+            var logFilePath = GetLogFilePath(builder.Configuration["Deployment:LogDirectory"]);
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
@@ -72,7 +74,8 @@ namespace InsoleApi
             builder.Services.AddSingleton<StlGenerationHealthCheckStatus>();
             builder.Services.AddSingleton<OrderedGenerationGate>();
             builder.Services.AddSingleton<RhinoComputeLifetime>();
-            var isTestEnv = builder.Configuration["urls"] == "http://localhost:5033";
+            var isIsolatedTest = builder.Environment.IsEnvironment("Test");
+            var isTestEnv = isIsolatedTest || builder.Configuration["urls"] == "http://localhost:5033";
             var shouldRunStlGenerationHealthCheck = !isTestEnv &&
                 string.IsNullOrWhiteSpace(builder.Configuration["RhinoCompute:LauncherPath"]);
 #if DEBUG
@@ -107,12 +110,27 @@ namespace InsoleApi
 
             var app = builder.Build();
 
+            if (initializeTestDatabase)
+            {
+                var database = new Npgsql.NpgsqlConnectionStringBuilder(PrimaryDbContext.NPGSQL_URL);
+                if (!isIsolatedTest || database.Host != "127.0.0.1" || database.Port != 55432 || database.Database != "ergono_test")
+                {
+                    throw new InvalidOperationException("Schema initialization requires the local isolated test database.");
+                }
+                using var scope = app.Services.CreateScope();
+                scope.ServiceProvider.GetRequiredService<PrimaryDbContext>().Database.EnsureCreated();
+                return;
+            }
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseCors("AllowDevelopment");
             }
 
-            app.UseCors("AllowProd");
+            if (!isIsolatedTest)
+            {
+                app.UseCors("AllowProd");
+            }
 
             // Configure the HTTP request pipeline.
 
@@ -123,6 +141,16 @@ namespace InsoleApi
             app.UseAuthorization();
 
             app.MapControllers();
+            if (isIsolatedTest)
+            {
+                app.MapGet("/health/ready", async (PrimaryDbContext db, CancellationToken cancellationToken) =>
+                {
+                    var canConnect = await db.Database.CanConnectAsync(cancellationToken);
+                    return canConnect
+                        ? Results.Ok(new { release = builder.Configuration["Deployment:Release"] })
+                        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                });
+            }
             //GenerateData();
 
             // appsettings.json 中 "urls": "http://localhost:5033" 取消注释时为测试环境，跳过邮件提醒避免重复发送
@@ -135,9 +163,11 @@ namespace InsoleApi
             app.Run();
         }
 
-        private static string GetLogFilePath()
+        private static string GetLogFilePath(string? configuredDirectory)
         {
-            const string logDirectory = @"C:\Ergono3DLogs";
+            var logDirectory = string.IsNullOrWhiteSpace(configuredDirectory)
+                ? @"C:\Ergono3DLogs"
+                : Path.GetFullPath(configuredDirectory);
             Directory.CreateDirectory(logDirectory);
 
             var applicationPath = GetApplicationPath();

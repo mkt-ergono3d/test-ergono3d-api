@@ -1,4 +1,4 @@
-﻿using inso.Utils;
+using inso.Utils;
 using InsoleApi.Common;
 using InsoleApi.Database;
 using InsoleApi.Utils;
@@ -174,7 +174,7 @@ namespace InsoleApi.Controllers
             {
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                client.DefaultRequestHeaders.Add("RhinoComputeKey", "7ed513bfdbd4498a9f926a8b88aac8c4");
+                _rhinoCompute.ConfigureAuthentication(client);
                 client.Timeout = TimeSpan.FromSeconds(600);
 
                 using var response = await _rhinoCompute.SendAsync(client, endpoint);

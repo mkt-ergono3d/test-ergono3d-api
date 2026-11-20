@@ -17,7 +17,6 @@ namespace InsoleApi.Utils
             "xurui@comfyplus.org"
         ];
 
-        private const string RhinoComputeKey = "7ed513bfdbd4498a9f926a8b88aac8c4";
         private const string HealthCheckPayload = """
             {
               "patient_id": "stl-health-check",
@@ -60,18 +59,21 @@ namespace InsoleApi.Utils
         private readonly ILogger<StlGenerationHealthCheckService> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly StlGenerationHealthCheckStatus _status;
+        private readonly RhinoComputeLifetime _rhinoCompute;
         private bool _hasUnresolvedFailure;
 
         public StlGenerationHealthCheckService(
             EmailHelper emailHelper,
             ILogger<StlGenerationHealthCheckService> logger,
             IServiceScopeFactory serviceScopeFactory,
-            StlGenerationHealthCheckStatus status)
+            StlGenerationHealthCheckStatus status,
+            RhinoComputeLifetime rhinoCompute)
         {
             _emailHelper = emailHelper;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
             _status = status;
+            _rhinoCompute = rhinoCompute;
             _status.SetEnabled(true);
         }
 
@@ -133,11 +135,11 @@ namespace InsoleApi.Utils
             }
         }
 
-        private static async Task<StlGenerationResult> GenerateStlAsync(string endpoint, CancellationToken cancellationToken)
+        private async Task<StlGenerationResult> GenerateStlAsync(string endpoint, CancellationToken cancellationToken)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("RhinoComputeKey", RhinoComputeKey);
+            _rhinoCompute.ConfigureAuthentication(client);
             client.Timeout = TimeSpan.FromSeconds(600);
 
             using var response = await client.GetAsync(endpoint, cancellationToken);

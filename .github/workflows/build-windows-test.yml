@@ -1,0 +1,39 @@
+name: Build Windows test API
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-windows-test-main
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish the API
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP 'api-publish'
+          dotnet publish InsoleApi.csproj --configuration Release --runtime win-x64 --self-contained true --output $destination
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Smoke-test the published executable
+        shell: pwsh
+        run: |
+          ./deploy/Test-WindowsPublish.ps1 -PublishDirectory (Join-Path $env:RUNNER_TEMP 'api-publish') -ScratchDirectory (Join-Path $env:RUNNER_TEMP 'api-smoke')
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ergono3d-api-win-x64-${{ github.sha }}
+          path: ${{ runner.temp }}/api-publish/
+          if-no-files-found: error
+          retention-days: 14
