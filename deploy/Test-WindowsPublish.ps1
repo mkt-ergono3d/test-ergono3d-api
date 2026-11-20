@@ -5,6 +5,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not ('System.Net.Http.HttpClient' -as [type])) {
+    Add-Type -AssemblyName System.Net.Http
+}
 $publish = (Resolve-Path -LiteralPath $PublishDirectory).Path
 $scratch = [IO.Path]::GetFullPath($ScratchDirectory)
 [void][IO.Directory]::CreateDirectory($scratch)

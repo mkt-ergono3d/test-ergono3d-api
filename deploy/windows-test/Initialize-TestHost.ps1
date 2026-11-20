@@ -30,6 +30,8 @@ foreach ($tool in 'node.exe','npm.cmd','git.exe','ssh.exe','ssh-keygen.exe','tar
 $accountPassword = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N') + '!aA7'
 $local = New-LocalUser -Name $userName -Description 'Isolated Ergono3D deployment test' `
     -Password (ConvertTo-SecureString $accountPassword -AsPlainText -Force) -PasswordNeverExpires -UserMayNotChangePassword
+Add-LocalGroupMember -SID ([System.Security.Principal.SecurityIdentifier]'S-1-5-32-545') -Member $local
+& (Join-Path $PSScriptRoot 'Grant-TestBatchLogon.ps1') -Sid $local.SID
 $sid = "*$($local.SID.Value)"
 $account = "$env:COMPUTERNAME\$userName"
 
